@@ -1,0 +1,6 @@
+{
+  "name": "RYYCO Proveedores — Central de Abastecimiento B2B",
+  "description": "Sistema e-commerce mayorista B2B para restaurantes del ecosistema RYYCO: catálogo mayorista, homologación centralizada de proveedores, comparador de precios por unidad de medida, compras corporativas y programación recurrente.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

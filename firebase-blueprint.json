@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Perfil comercial y condiciones de venta de un proveedor en el ecosistema RYYCO (Colección raíz)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tradeName": { "type": "string" },
+        "businessName": { "type": "string" },
+        "nit": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "categories": { "type": "array" },
+        "city": { "type": "string" },
+        "servedZones": { "type": "array" },
+        "salesWhatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "minOrderCop": { "type": "number" },
+        "paymentMethodsAccepted": { "type": "array" },
+        "paymentTiming": { "type": "string", "enum": ["anticipado", "contraentrega", "ambos"] },
+        "orderCutoffHour": { "type": "string" },
+        "disputeReportingWindowHours": { "type": "number" },
+        "offeredSolutions": { "type": "array" },
+        "deliveryOptions": { "type": "array" },
+        "transportResponsible": { "type": "string" },
+        "deliveryDays": { "type": "array" },
+        "deliveryTimeWindow": { "type": "string" },
+        "baseShippingFeeCop": { "type": "number" },
+        "freeShippingThresholdCop": { "type": "number" },
+        "canUploadProducts": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "pending_verification", "suspended"] },
+        "verifiedByRyyco": { "type": "boolean" }
+      },
+      "required": ["tradeName", "nit", "salesWhatsapp"]
+    },
+    "SupplierProduct": {
+      "title": "SupplierProduct",
+      "description": "Insumo mayorista derivado de la colección del proveedor (/suppliers/{supplierId}/products/{productId})",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierTradeName": { "type": "string" },
+        "name": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "presentationLabel": { "type": "string" },
+        "salesUnit": { "type": "string", "enum": ["unidad", "kilogramo", "bolsa", "caja", "bulto", "galon", "litro"] },
+        "baseUnit": { "type": "string" },
+        "baseUnitQuantity": { "type": "number" },
+        "priceCop": { "type": "number" },
+        "minOrderQty": { "type": "number" },
+        "availability": { "type": "string", "enum": ["disponible", "bajo_pedido", "agotado"] },
+        "leadTimePrepHours": { "type": "number" },
+        "storageCondition": { "type": "string", "enum": ["ambiente", "refrigerado", "congelado"] },
+        "isVariableWeight": { "type": "boolean" },
+        "category": { "type": "string" },
+        "sku": { "type": "string" }
+      },
+      "required": ["supplierId", "name", "priceCop", "salesUnit", "availability"]
+    },
+    "B2BPurchaseOrder": {
+      "title": "B2BPurchaseOrder",
+      "description": "Pedido de compra corporativo derivado de la colección del proveedor (/suppliers/{supplierId}/orders/{orderId})",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "restaurantUid": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pendiente_confirmacion", "propuesta_cambios", "confirmado", "en_camino", "listo_recoger", "entregado", "cancelado", "sin_confirmar"] },
+        "paymentStatus": { "type": "string", "enum": ["pendiente", "pagado"] },
+        "paymentMethod": { "type": "string" },
+        "deliveryMode": { "type": "string", "enum": ["entrega_proveedor", "recogida_restaurante"] },
+        "deliveryAddress": { "type": "string" },
+        "deliveryDate": { "type": "string" },
+        "deliveryTimeWindow": { "type": "string" },
+        "subtotalCop": { "type": "number" },
+        "shippingFeeCop": { "type": "number" },
+        "totalAmountCop": { "type": "number" },
+        "items": { "type": "array" },
+        "history": { "type": "array" }
+      },
+      "required": ["supplierId", "restaurantUid", "status", "paymentStatus", "totalAmountCop"]
+    },
+    "RecurringSchedule": {
+      "title": "RecurringSchedule",
+      "description": "Programación de compras recurrentes derivada del proveedor (/suppliers/{supplierId}/schedules/{scheduleId})",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "restaurantUid": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["semanal", "cada_dos_semanas", "mensual"] },
+        "status": { "type": "string", "enum": ["activo", "pausado", "cancelado"] },
+        "nextDeliveryDate": { "type": "string" },
+        "items": { "type": "array" }
+      },
+      "required": ["restaurantUid", "supplierId", "frequency", "status"]
+    },
+    "ProblemReport": {
+      "title": "ProblemReport",
+      "description": "Reporte de problema o faltante sobre un pedido del proveedor (/suppliers/{supplierId}/problem_reports/{reportId})",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "reason": { "type": "string" },
+        "description": { "type": "string" },
+        "solutionRequested": { "type": "string", "enum": ["reposicion", "devolucion", "ajuste_cobro"] },
+        "status": { "type": "string", "enum": ["abierto", "en_revision", "resuelto"] }
+      },
+      "required": ["orderId", "reason", "solutionRequested"]
+    },
+    "SupplierApplication": {
+      "title": "SupplierApplication",
+      "description": "Postulación de empresa proveedora previa a su creación y homologación",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tradeName": { "type": "string" },
+        "businessName": { "type": "string" },
+        "nit": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "B2BCart": {
+      "title": "B2BCart",
+      "description": "Bolsa de compras corporativa sincronizada por restaurante",
+      "type": "object",
+      "properties": {
+        "restaurantUid": { "type": "string" },
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["restaurantUid", "items"]
+    },
+    "RyycoConfig": {
+      "title": "RyycoConfig",
+      "description": "Configuraciones globales de RYYCO Central como comisiones por categoría",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rates": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Colección raíz donde se crea cada proveedor del ecosistema RYYCO"
+    },
+    "/suppliers/{supplierId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/SupplierProduct" },
+      "description": "Subcolección de insumos mayoristas derivados exclusivamente de este proveedor"
+    },
+    "/suppliers/{supplierId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/B2BPurchaseOrder" },
+      "description": "Subcolección de pedidos dirigidos y gestionados exclusivamente por este proveedor"
+    },
+    "/suppliers/{supplierId}/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/RecurringSchedule" },
+      "description": "Subcolección de programaciones recurrentes de abastecimiento para este proveedor"
+    },
+    "/suppliers/{supplierId}/problem_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ProblemReport" },
+      "description": "Subcolección de incidencias y reportes asociados a este proveedor"
+    },
+    "/supplier_applications/{appId}": {
+      "schema": { "$ref": "#/entities/SupplierApplication" },
+      "description": "Postulaciones de empresas antes de su homologación como proveedor"
+    },
+    "/b2b_carts/{cartId}": {
+      "schema": { "$ref": "#/entities/B2BCart" },
+      "description": "Bolsas de compra persistentes por restaurante"
+    },
+    "/ryyco_config/{configId}": {
+      "schema": { "$ref": "#/entities/RyycoConfig" },
+      "description": "Tabla de comisiones y configuraciones maestras de RYYCO Central"
+    }
+  }
+}

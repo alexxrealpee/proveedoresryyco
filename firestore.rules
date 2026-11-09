@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Test de conexión para validación de arranque
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Colección raíz: Proveedores corporativos RYYCO
+    match /suppliers/{supplierId} {
+      allow read: if true;
+      allow write: if true;
+
+      // Subcolección: Insumos mayoristas derivados del proveedor
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if true;
+      }
+
+      // Subcolección: Pedidos corporativos derivados del proveedor
+      match /orders/{orderId} {
+        allow read: if true;
+        allow write: if true;
+      }
+
+      // Subcolección: Compras recurrentes programadas con este proveedor
+      match /schedules/{scheduleId} {
+        allow read: if true;
+        allow write: if true;
+      }
+
+      // Subcolección: Reportes de problemas y faltantes de este proveedor
+      match /problem_reports/{reportId} {
+        allow read: if true;
+        allow write: if true;
+      }
+    }
+
+    // Habilitación de consultas collectionGroup para el catálogo público y los pedidos de restaurantes
+    match /{path=**}/products/{productId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /{path=**}/orders/{orderId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Solicitudes de contacto para ser proveedor
+    match /supplier_applications/{appId} {
+      allow read, write: if true;
+    }
+
+    // Usuarios y restaurantes
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Bolsa corporativa de compras por restaurante
+    match /b2b_carts/{cartId} {
+      allow read, write: if true;
+    }
+
+    // Configuración central de RYYCO (comisiones, tarifas)
+    match /ryyco_config/{configId} {
+      allow read, write: if true;
+    }
+
+    // Default deny para cualquier otra ruta
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
