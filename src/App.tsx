@@ -1318,12 +1318,6 @@ export default function App() {
         shortLabel: 'Comparar',
         icon: <BarChart2 className="w-4 h-4" />,
       },
-      {
-        id: 'suppliers',
-        label: 'Red de proveedores',
-        shortLabel: 'Proveedores',
-        icon: <Users className="w-4 h-4" />,
-      },
     ];
 
     // Módulos exclusivos para Restaurante Comprador (NUNCA Proveedores ni Vender en RYYCO)
@@ -1365,17 +1359,6 @@ export default function App() {
         shortLabel: `Mi Portal${myPendingOrders > 0 ? ` (${myPendingOrders})` : ''}`,
         highlight: myPendingOrders > 0,
         icon: <Building2 className="w-4 h-4 text-[#F4B400]" />,
-      });
-    }
-
-    // Módulos exclusivos para Administrador de RYYCO Central
-    if (adminSession) {
-      items.push({
-        id: 'admin_central',
-        label: `RYYCO Central${pendingAppsCount > 0 ? ` (${pendingAppsCount})` : ''}`,
-        shortLabel: `Central${pendingAppsCount > 0 ? ` (${pendingAppsCount})` : ''}`,
-        highlight: pendingAppsCount > 0,
-        icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
       });
     }
 
@@ -1461,15 +1444,6 @@ export default function App() {
                 >
                   <Repeat className={`w-4 h-4 ${activeSection === 'automation' ? 'text-[#E52243]' : 'text-gray-600'}`} />
                   <span>Compras recurrentes</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSection('suppliers')}
-                  className="flex items-center gap-2 py-5 border-b-2 -mb-px transition-colors cursor-pointer border-transparent text-gray-700 hover:text-gray-950"
-                >
-                  <Users className="w-4 h-4 text-gray-600" />
-                  <span>Red de proveedores</span>
                 </button>
               </nav>
             </div>
@@ -2029,22 +2003,26 @@ export default function App() {
 
       {/* 2. Cuerpo Principal */}
       {activeSection === 'suppliers' ? (
-        <SupplierPortalView
-          suppliers={suppliers}
-          products={displayedProducts}
-          applications={applications}
-          onSubmitApplication={handleSubmitSupplierApplication}
-          onCreateSupplierProduct={handleCreateSupplierProduct}
-          onOpenAdminPanel={() => {
-            if (adminSession) {
-              setActiveSection('admin_central');
-            } else {
-              setIsAdminLoginModalOpen(true);
-            }
-          }}
-          userName={restaurantSession?.displayName || (adminSession ? 'ADMIN CENTRAL' : 'PRUEBA')}
-          onBackToMarketplace={() => setActiveSection('marketplace')}
-        />
+        !adminSession ? (
+          <div className="py-12 px-4 max-w-lg mx-auto">
+            <AdminLoginGate
+              onLoginSuccess={handleAdminLoginSuccess}
+              onCancel={() => setActiveSection('marketplace')}
+              pendingCount={pendingAppsCount}
+            />
+          </div>
+        ) : (
+          <SupplierPortalView
+            suppliers={suppliers}
+            products={displayedProducts}
+            applications={applications}
+            onSubmitApplication={handleSubmitSupplierApplication}
+            onCreateSupplierProduct={handleCreateSupplierProduct}
+            onOpenAdminPanel={() => setActiveSection('admin_central')}
+            userName={adminSession.email || 'ADMIN CENTRAL'}
+            onBackToMarketplace={() => setActiveSection('marketplace')}
+          />
+        )
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8 pb-24 md:pb-8">
         {/* SECCIÓN 1: CATÁLOGO MAYORISTA (Fiel al mockup de celular y PC) */}
@@ -2489,14 +2467,6 @@ export default function App() {
               <div className="flex flex-wrap items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setActiveSection('suppliers')}
-                  className="bg-white hover:bg-gray-50 border border-amber-300 text-gray-900 font-bold text-xs px-4 py-2.5 rounded-xl shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <Users className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Ver proveedores</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setActiveSection('supplier_landing')}
                   className="bg-[#F4B400] hover:bg-[#E0A400] text-gray-950 font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
                 >
@@ -2615,6 +2585,7 @@ export default function App() {
               onDirectRegisterAndEnableSupplier={handleDirectRegisterAndEnableSupplier}
               onUpdateOrderStatus={handleUpdateOrderStatus}
               onUpdatePaymentStatus={handleUpdatePaymentStatus}
+              onOpenSupplierPortal={() => setActiveSection('suppliers')}
             />
           )
         )}

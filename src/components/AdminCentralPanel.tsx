@@ -53,6 +53,7 @@ import {
   ChevronUp,
   ArrowUpDown,
   Hash,
+  Users,
 } from 'lucide-react';
 import { AdminUserSession } from './AdminLoginGate';
 import { RyycoLogo } from './RyycoLogo';
@@ -90,6 +91,7 @@ interface AdminCentralPanelProps {
     status: PaymentStatus,
     supplierId?: string
   ) => Promise<void>;
+  onOpenSupplierPortal?: () => void;
 }
 
 const CATEGORIES: SupplierCategory[] = [
@@ -116,6 +118,7 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
   onSaveCommissionRates,
   onUpdateOrderStatus,
   onUpdatePaymentStatus,
+  onOpenSupplierPortal,
 }) => {
   const [activeTab, setActiveTab] = useState<'applications' | 'suppliers_control' | 'direct_onboarding' | 'commission_table' | 'all_orders'>('applications');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -424,6 +427,18 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
             {adminSession?.role || 'SuperAdmin Operaciones'}
           </span>
 
+          {onOpenSupplierPortal && (
+            <button
+              type="button"
+              onClick={onOpenSupplierPortal}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-800 text-xs font-bold rounded-xl shadow-2xs transition-colors cursor-pointer"
+              title="Ver portal Red de Proveedores"
+            >
+              <Users className="w-4 h-4 text-gray-600" />
+              <span>Red de proveedores</span>
+            </button>
+          )}
+
           {onLogoutAdmin && (
             <button
               type="button"
@@ -464,6 +479,16 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
             <span className="px-2.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[10px] font-black uppercase tracking-wider">
               {adminSession?.role || 'SuperAdmin Operaciones'}
             </span>
+            {onOpenSupplierPortal && (
+              <button
+                type="button"
+                onClick={onOpenSupplierPortal}
+                className="text-gray-700 hover:text-gray-950 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Ver Red de Proveedores"
+              >
+                <Users className="w-4 h-4 text-gray-700" />
+              </button>
+            )}
             {onLogoutAdmin && (
               <button
                 type="button"
@@ -562,6 +587,18 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
           <Percent className="w-4 h-4" />
           <span>Comisiones</span>
         </button>
+
+        {onOpenSupplierPortal && (
+          <button
+            type="button"
+            onClick={onOpenSupplierPortal}
+            className="flex-1 py-3 px-3 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 text-gray-700 hover:text-gray-950 hover:bg-gray-50 border border-gray-200"
+            title="Abrir vista de Red de Proveedores"
+          >
+            <Users className="w-4 h-4 text-amber-600" />
+            <span>Red de proveedores</span>
+          </button>
+        )}
       </div>
 
       {/* Pestañas Celular Superior (Fila compacta) */}
