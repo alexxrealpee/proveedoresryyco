@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import firebaseConfig from '../../firebase-applet-config.json';
+
 export interface FirebaseAuthDiagnosis {
   code: string;
   title: string;
@@ -19,7 +21,7 @@ export function diagnoseFirebaseAuthError(err: unknown): FirebaseAuthDiagnosis {
   const rawMsg = errorObj?.message || String(err || '');
 
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-  const currentProjectId = 'ryyco-proveedores-7a8b9';
+  const currentProjectId = firebaseConfig.projectId || 'studio-9002217802-13e05';
   const consoleSettingsUrl = `https://console.firebase.google.com/project/${currentProjectId}/authentication/settings`;
   const consoleProvidersUrl = `https://console.firebase.google.com/project/${currentProjectId}/authentication/providers`;
 
