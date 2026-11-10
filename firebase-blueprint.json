@@ -29,7 +29,10 @@
         "baseShippingFeeCop": { "type": "number" },
         "freeShippingThresholdCop": { "type": "number" },
         "canUploadProducts": { "type": "boolean" },
-        "status": { "type": "string", "enum": ["active", "pending_verification", "suspended"] },
+        "status": { "type": "string", "enum": ["active", "inactive", "pending_verification", "suspended"] },
+        "statusReason": { "type": "string" },
+        "statusUpdatedAt": { "type": "string" },
+        "statusUpdatedBy": { "type": "string" },
         "verifiedByRyyco": { "type": "boolean" }
       },
       "required": ["tradeName", "nit", "salesWhatsapp"]
@@ -122,6 +125,10 @@
         "tradeName": { "type": "string" },
         "businessName": { "type": "string" },
         "nit": { "type": "string" },
+        "city": { "type": "string" },
+        "address": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
         "status": { "type": "string" },
         "createdAt": { "type": "string" }
       }

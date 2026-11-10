@@ -8,6 +8,7 @@ import {
   RyycoSupplier,
   SupplierApplication,
   SupplierCategory,
+  SupplierStatus,
   RyycoCommissionRate,
   B2BPurchaseOrder,
   B2BOrderStatus,
@@ -54,10 +55,19 @@ import {
   ArrowUpDown,
   Hash,
   Users,
+  Pause,
+  Ban,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { AdminUserSession } from './AdminLoginGate';
 import { RyycoLogo } from './RyycoLogo';
 import { ResilientImage } from './ResilientImage';
+import {
+  INACTIVATE_CRITERIA_PRESETS,
+  SUSPEND_CRITERIA_PRESETS,
+} from './SupplierPortalView';
+import { WarehouseLocationPickerMap } from './WarehouseLocationPickerMap';
 
 interface AdminCentralPanelProps {
   suppliers: RyycoSupplier[];
@@ -71,7 +81,8 @@ interface AdminCentralPanelProps {
   onToggleUploadPermission: (supplierId: string) => void;
   onUpdateSupplierStatus: (
     supplierId: string,
-    status: 'active' | 'suspended' | 'pending_verification'
+    status: SupplierStatus,
+    reason?: string
   ) => void;
   onDirectRegisterAndEnableSupplier: (
     supplier: Omit<
@@ -127,6 +138,61 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
   const [openAppMenuId, setOpenAppMenuId] = useState<string | null>(null);
   const [openSupplierMenuId, setOpenSupplierMenuId] = useState<string | null>(null);
 
+  // Estados para Modal de Criterio de Suspensión / Inactivación
+  const [selectedSupplierForStatus, setSelectedSupplierForStatus] = useState<RyycoSupplier | null>(null);
+  const [targetStatusAction, setTargetStatusAction] = useState<'inactive' | 'suspended' | null>(null);
+  const [selectedPresetReason, setSelectedPresetReason] = useState<string>(INACTIVATE_CRITERIA_PRESETS[0]);
+  const [customReasonDetails, setCustomReasonDetails] = useState<string>('');
+  const [isSavingStatus, setIsSavingStatus] = useState<boolean>(false);
+
+  const handleOpenStatusModal = (supplier: RyycoSupplier, action: 'inactive' | 'suspended') => {
+    setSelectedSupplierForStatus(supplier);
+    setTargetStatusAction(action);
+    const presets = action === 'inactive' ? INACTIVATE_CRITERIA_PRESETS : SUSPEND_CRITERIA_PRESETS;
+    setSelectedPresetReason(presets[0]);
+    setCustomReasonDetails('');
+    setOpenSupplierMenuId(null);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!selectedSupplierForStatus || !targetStatusAction || !onUpdateSupplierStatus) return;
+    setIsSavingStatus(true);
+    try {
+      const finalReason = customReasonDetails.trim()
+        ? `${selectedPresetReason}: ${customReasonDetails.trim()}`
+        : selectedPresetReason;
+
+      await onUpdateSupplierStatus(selectedSupplierForStatus.id, targetStatusAction, finalReason);
+      setSuccessBanner(
+        `Proveedor "${selectedSupplierForStatus.tradeName}" actualizado a estado ${
+          targetStatusAction === 'inactive' ? 'Inactivo / Pausado' : 'Suspendido'
+        }.`
+      );
+      setSelectedSupplierForStatus(null);
+      setTargetStatusAction(null);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (err) {
+      console.error('Error al actualizar estado:', err);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
+  const handleDirectActivate = async (supplier: RyycoSupplier) => {
+    if (!onUpdateSupplierStatus) return;
+    setIsSavingStatus(true);
+    try {
+      await onUpdateSupplierStatus(supplier.id, 'active', 'Reactivado y habilitado por RYYCO Central');
+      setSuccessBanner(`Proveedor "${supplier.tradeName}" reactivado y habilitado para operar.`);
+      setOpenSupplierMenuId(null);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (err) {
+      console.error('Error al reactivar:', err);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
   // Estados para la sección de Todos los Pedidos de Proveedores
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderSupplierFilter, setOrderSupplierFilter] = useState('all');
@@ -179,6 +245,8 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
   const [directNit, setDirectNit] = useState('');
   const [directCategory, setDirectCategory] = useState<SupplierCategory>('Cárnicos y Embutidos');
   const [directAddress, setDirectAddress] = useState('');
+  const [directCity, setDirectCity] = useState('Ipiales');
+  const [directCoords, setDirectCoords] = useState<{ lat: number; lng: number }>({ lat: 0.8305, lng: -77.6462 });
   const [directPhone, setDirectPhone] = useState('');
   const [directEmail, setDirectEmail] = useState('');
   const [directMinOrder, setDirectMinOrder] = useState(150000);
@@ -358,11 +426,11 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
       slug: cleanTrade.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       category: directCategory,
       categories: [directCategory],
-      city: 'Ipiales',
+      city: directCity.trim() || 'Ipiales',
       address: directAddress.trim() || 'Zona Industrial Ipiales, Nariño',
       servedZones: ['Centro', 'Área Metropolitana Ipiales'],
-      lat: 0.8305,
-      lng: -77.6462,
+      lat: directCoords.lat,
+      lng: directCoords.lng,
       salesWhatsapp: sanitizeRyycoPhone(directPhone || '3158009900'),
       email: cleanEmail,
       googleEmail: cleanEmail,
@@ -1048,16 +1116,33 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                       </td>
 
                       <td className="py-4 px-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                          sup.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : sup.status === 'pending_verification'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-red-50 text-red-700 border border-red-200'
-                        }`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>{sup.status === 'active' ? 'Activo en ecosistema' : sup.status === 'pending_verification' ? 'Pendiente' : 'Suspendido'}</span>
-                        </span>
+                        <div className="space-y-1">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                            sup.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : sup.status === 'inactive'
+                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                              : sup.status === 'suspended'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            <span>
+                              {sup.status === 'active'
+                                ? 'Activo en ecosistema'
+                                : sup.status === 'inactive'
+                                ? 'Inactivo / Pausado'
+                                : sup.status === 'suspended'
+                                ? 'Suspendido'
+                                : 'Pendiente'}
+                            </span>
+                          </span>
+                          {sup.statusReason && sup.status !== 'active' && (
+                            <p className="text-[10px] text-gray-500 font-medium max-w-xs truncate" title={sup.statusReason}>
+                              {sup.statusReason}
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-4 px-4 text-center">
@@ -1086,7 +1171,47 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                           </button>
 
                           {openSupplierMenuId === sup.id && (
-                            <div className="absolute right-0 mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-20 text-xs text-left">
+                            <div className="absolute right-0 mt-1.5 w-60 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-20 text-xs text-left animate-in fade-in duration-150">
+                              <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 flex items-center justify-between">
+                                <span>Criterio Admin</span>
+                                <span className="font-mono text-[9px]">{sup.status}</span>
+                              </div>
+
+                              {sup.status !== 'active' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDirectActivate(sup)}
+                                  className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2 text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span>Habilitar / Activar Proveedor</span>
+                                </button>
+                              )}
+
+                              {sup.status !== 'inactive' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenStatusModal(sup, 'inactive')}
+                                  className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                                >
+                                  <Pause className="w-4 h-4 text-slate-600 shrink-0" />
+                                  <span>Inactivar Proveedor (Pausa)...</span>
+                                </button>
+                              )}
+
+                              {sup.status !== 'suspended' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenStatusModal(sup, 'suspended')}
+                                  className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2 text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                >
+                                  <Ban className="w-4 h-4 text-rose-600 shrink-0" />
+                                  <span>Suspender Proveedor (Sanción)...</span>
+                                </button>
+                              )}
+
+                              <div className="my-1 border-t border-gray-100" />
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1097,37 +1222,13 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                               >
                                 {sup.canUploadProducts ? (
                                   <>
-                                    <Lock className="w-4 h-4 text-amber-500" />
-                                    <span>Bloquear Subida</span>
+                                    <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                                    <span>Bloquear Subida de Insumos</span>
                                   </>
                                 ) : (
                                   <>
-                                    <Unlock className="w-4 h-4 text-emerald-600" />
-                                    <span>Habilitar Perfil Proveedor</span>
-                                  </>
-                                )}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onUpdateSupplierStatus(
-                                    sup.id,
-                                    sup.status === 'active' ? 'suspended' : 'active'
-                                  );
-                                  setOpenSupplierMenuId(null);
-                                }}
-                                className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors cursor-pointer text-gray-800"
-                              >
-                                {sup.status === 'active' ? (
-                                  <>
-                                    <XCircle className="w-4 h-4 text-red-500" />
-                                    <span>Suspender Proveedor</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                    <span>Activar Proveedor</span>
+                                    <Unlock className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>Habilitar Subida de Insumos</span>
                                   </>
                                 )}
                               </button>
@@ -1191,15 +1292,38 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                     <span className="text-[#D97706] font-bold font-mono">{sup.salesWhatsapp}</span>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-gray-500 font-medium">
+                  <div className="flex items-start justify-between">
+                    <span className="flex items-center gap-1.5 text-gray-500 font-medium pt-0.5">
                       <Activity className="w-4 h-4 text-gray-400" />
                       <span>Estado operativo:</span>
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px] inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span>Activo en ecosistema</span>
-                    </span>
+                    <div className="text-right">
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] inline-flex items-center gap-1 ${
+                        sup.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : sup.status === 'inactive'
+                          ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                          : sup.status === 'suspended'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span>
+                          {sup.status === 'active'
+                            ? 'Activo en ecosistema'
+                            : sup.status === 'inactive'
+                            ? 'Inactivo / Pausado'
+                            : sup.status === 'suspended'
+                            ? 'Suspendido'
+                            : 'Pendiente'}
+                        </span>
+                      </span>
+                      {sup.statusReason && sup.status !== 'active' && (
+                        <p className="text-[10px] text-gray-500 mt-0.5 max-w-[200px] truncate">
+                          {sup.statusReason}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -1207,10 +1331,17 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                       <Unlock className="w-4 h-4 text-gray-400" />
                       <span>Permiso de publicación:</span>
                     </span>
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <Unlock className="w-3.5 h-3.5" />
-                      <span>Habilitado</span>
-                    </span>
+                    {sup.canUploadProducts ? (
+                      <span className="text-emerald-600 font-bold flex items-center gap-1">
+                        <Unlock className="w-3.5 h-3.5" />
+                        <span>Habilitado</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 font-bold flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Bloqueado</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1228,6 +1359,41 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
 
                     {openSupplierMenuId === sup.id && (
                       <div className="absolute left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-20 text-xs">
+                        {sup.status !== 'active' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDirectActivate(sup)}
+                            className="w-full px-4 py-2.5 font-bold flex items-center gap-2 hover:bg-emerald-50 text-emerald-700"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Habilitar / Activar Proveedor</span>
+                          </button>
+                        )}
+
+                        {sup.status !== 'inactive' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenStatusModal(sup, 'inactive')}
+                            className="w-full px-4 py-2.5 font-bold flex items-center gap-2 hover:bg-slate-50 text-slate-700"
+                          >
+                            <Pause className="w-4 h-4 text-slate-600" />
+                            <span>Inactivar Proveedor (Pausa)...</span>
+                          </button>
+                        )}
+
+                        {sup.status !== 'suspended' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenStatusModal(sup, 'suspended')}
+                            className="w-full px-4 py-2.5 font-bold flex items-center gap-2 hover:bg-rose-50 text-rose-700"
+                          >
+                            <Ban className="w-4 h-4 text-rose-600" />
+                            <span>Suspender Proveedor (Sanción)...</span>
+                          </button>
+                        )}
+
+                        <div className="my-1 border-t border-gray-100" />
+
                         <button
                           type="button"
                           onClick={() => {
@@ -1237,22 +1403,7 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                           className="w-full px-4 py-2.5 font-bold flex items-center gap-2 hover:bg-gray-50 text-gray-800"
                         >
                           {sup.canUploadProducts ? <Lock className="w-4 h-4 text-amber-500" /> : <Unlock className="w-4 h-4 text-emerald-600" />}
-                          <span>{sup.canUploadProducts ? 'Bloquear Subida' : 'Habilitar Perfil Proveedor'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onUpdateSupplierStatus(
-                              sup.id,
-                              sup.status === 'active' ? 'suspended' : 'active'
-                            );
-                            setOpenSupplierMenuId(null);
-                          }}
-                          className="w-full px-4 py-2.5 font-bold flex items-center gap-2 hover:bg-gray-50 text-gray-800"
-                        >
-                          {sup.status === 'active' ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                          <span>{sup.status === 'active' ? 'Suspender Proveedor' : 'Activar Proveedor'}</span>
+                          <span>{sup.canUploadProducts ? 'Bloquear Subida' : 'Habilitar Subida'}</span>
                         </button>
                       </div>
                     )}
@@ -1261,6 +1412,138 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
               </div>
             )))}
           </div>
+
+          {/* Modal de Criterio Administrativo de Suspensión / Inactivación en Panel Central */}
+          {selectedSupplierForStatus && targetStatusAction && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col p-6 sm:p-7">
+                {/* Header Modal */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        targetStatusAction === 'inactive'
+                          ? 'bg-slate-100 text-slate-700'
+                          : 'bg-rose-100 text-rose-700'
+                      }`}
+                    >
+                      {targetStatusAction === 'inactive' ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Ban className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-gray-950 font-display">
+                        {targetStatusAction === 'inactive'
+                          ? 'Inactivar Proveedor (Pausa)'
+                          : 'Suspender Proveedor (Sanción)'}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {selectedSupplierForStatus.tradeName} · NIT {selectedSupplierForStatus.nit}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSupplierForStatus(null);
+                      setTargetStatusAction(null);
+                    }}
+                    className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                    aria-label="Cerrar modal"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Cuerpo del Modal */}
+                <div className="py-4 space-y-4 text-xs">
+                  <div
+                    className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
+                      targetStatusAction === 'inactive'
+                        ? 'bg-slate-50 border-slate-200 text-slate-700'
+                        : 'bg-rose-50 border-rose-200 text-rose-700'
+                    }`}
+                  >
+                    {targetStatusAction === 'inactive'
+                      ? 'La inactivación pondrá en pausa comercial al proveedor. Sus insumos no se mostrarán para compras en el catálogo de restaurantes hasta que el administrador decida reactivarlo.'
+                      : 'La suspensión bloquea el acceso del proveedor a su portal y retira de inmediato todos sus insumos del catálogo público por faltas, problemas de calidad o incumplimiento reiterado.'}
+                  </div>
+
+                  {/* Selector de Criterio */}
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-gray-800 text-xs">
+                      Criterio principal del administrador:
+                    </label>
+                    <select
+                      value={selectedPresetReason}
+                      onChange={(e) => setSelectedPresetReason(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#E52243]"
+                    >
+                      {(targetStatusAction === 'inactive'
+                        ? INACTIVATE_CRITERIA_PRESETS
+                        : SUSPEND_CRITERIA_PRESETS
+                      ).map((reason) => (
+                        <option key={reason} value={reason}>
+                          {reason}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Observaciones complementarias */}
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-gray-800 text-xs">
+                      Observaciones o detalles adicionales (opcional):
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={customReasonDetails}
+                      onChange={(e) => setCustomReasonDetails(e.target.value)}
+                      placeholder="Ej. Notificado por WhatsApp. Pausa acordada hasta el 25 de este mes / Reclamo de restaurante #104 por lote con inconsistencias."
+                      className="w-full bg-white border border-gray-300 rounded-xl p-3 text-xs text-gray-900 focus:outline-none focus:border-[#E52243]"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Modal */}
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSupplierForStatus(null);
+                      setTargetStatusAction(null);
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingStatus}
+                    onClick={handleConfirmStatusChange}
+                    className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2 ${
+                      targetStatusAction === 'inactive'
+                        ? 'bg-slate-800 hover:bg-slate-900'
+                        : 'bg-rose-600 hover:bg-rose-700'
+                    }`}
+                  >
+                    {isSavingStatus ? (
+                      <span>Guardando...</span>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>
+                          Confirmar {targetStatusAction === 'inactive' ? 'Inactivación' : 'Suspensión'}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1385,8 +1668,25 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-800 mb-1.5">
-                    Dirección de despacho
+                  <label className="block text-xs font-bold text-gray-800 mb-1.5 flex items-center justify-between">
+                    <span>Ciudad de despacho</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Detectada en mapa
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={directCity}
+                    onChange={(e) => setDirectCity(e.target.value)}
+                    placeholder="Ej. Ipiales"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243] transition-all shadow-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-gray-800 mb-1.5 flex items-center justify-between">
+                    <span>Dirección física de bodega o punto de despacho</span>
+                    <span className="text-[10px] text-gray-400 font-medium">Autocompletada en mapa</span>
                   </label>
                   <input
                     type="text"
@@ -1394,6 +1694,32 @@ export const AdminCentralPanel: React.FC<AdminCentralPanelProps> = ({
                     onChange={(e) => setDirectAddress(e.target.value)}
                     placeholder="Ej. Km 3 Vía al Sur, Bodega 9, Ipiales"
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243] transition-all shadow-xs"
+                  />
+                </div>
+
+                {/* Mapa interactivo de ubicación de bodega en Alta Directa */}
+                <div className="sm:col-span-2 space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#E52243]" />
+                      <span>Fijar bodega en el mapa interactivo:</span>
+                    </span>
+                    <span className="text-[11px] text-gray-500 hidden sm:inline">
+                      Mueve el pin para autocompletar la dirección y la ciudad
+                    </span>
+                  </div>
+
+                  <WarehouseLocationPickerMap
+                    lat={directCoords.lat}
+                    lng={directCoords.lng}
+                    address={directAddress}
+                    city={directCity}
+                    tradeName={directTradeName || 'Bodega del Proveedor'}
+                    onChange={(data) => {
+                      setDirectCoords({ lat: data.lat, lng: data.lng });
+                      if (data.address) setDirectAddress(data.address);
+                      if (data.city) setDirectCity(data.city);
+                    }}
                   />
                 </div>
 

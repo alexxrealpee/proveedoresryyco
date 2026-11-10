@@ -23,6 +23,7 @@ import {
   DeliveryMode,
   ProductAvailability,
   RyycoCommissionRate,
+  SupplierStatus,
 } from './types/ryycoB2B';
 import {
   formatCop,
@@ -1020,8 +1021,8 @@ export default function App() {
       city: app.city,
       address: app.address,
       servedZones: ['Centro', 'Área Metropolitana'],
-      lat: 0.8305,
-      lng: -77.6462,
+      lat: app.lat || 0.8305,
+      lng: app.lng || -77.6462,
       salesWhatsapp: app.contactWhatsapp,
       email: app.email,
       supportChannel: 'ambos',
@@ -1085,11 +1086,20 @@ export default function App() {
 
   const handleUpdateSupplierStatus = async (
     supplierId: string,
-    status: 'active' | 'suspended' | 'pending_verification'
+    status: SupplierStatus,
+    reason?: string
   ) => {
     const sup = suppliers.find((s) => s.id === supplierId);
     if (!sup) return;
-    const updated = { ...sup, status };
+    const updated: RyycoSupplier = {
+      ...sup,
+      status,
+      statusReason: reason !== undefined ? reason : sup.statusReason,
+      statusUpdatedAt: new Date().toISOString(),
+      statusUpdatedBy: adminSession?.email || 'Admin RYYCO Central',
+      canUploadProducts: status === 'active',
+      active: status === 'active',
+    };
     await saveSupplierInFirestore(updated);
     setSuppliers((prev) => prev.map((s) => (s.id === supplierId ? updated : s)));
   };
@@ -1235,10 +1245,15 @@ export default function App() {
     }
   };
 
-  // Productos a desplegar: Exclusiva y estrictamente los insumos reales leídos desde Cloud Firestore
+  // Productos a desplegar: Exclusiva y estrictamente los insumos reales leídos desde Cloud Firestore de proveedores activos y habilitados
   const displayedProducts = useMemo<SupplierProduct[]>(() => {
-    return deduplicateProducts(products);
-  }, [products]);
+    const activeSupplierIds = new Set(
+      suppliers
+        .filter((s) => s.status === 'active' && s.canUploadProducts !== false)
+        .map((s) => s.id)
+    );
+    return deduplicateProducts(products.filter((p) => activeSupplierIds.has(p.supplierId)));
+  }, [products, suppliers]);
 
 
   const [sortBy, setSortBy] = useState<'relevancia' | 'menor_precio' | 'mayor_precio'>('relevancia');
@@ -2014,13 +2029,15 @@ export default function App() {
         ) : (
           <SupplierPortalView
             suppliers={suppliers}
-            products={displayedProducts}
+            products={products}
             applications={applications}
             onSubmitApplication={handleSubmitSupplierApplication}
             onCreateSupplierProduct={handleCreateSupplierProduct}
             onOpenAdminPanel={() => setActiveSection('admin_central')}
             userName={adminSession.email || 'ADMIN CENTRAL'}
             onBackToMarketplace={() => setActiveSection('marketplace')}
+            onUpdateSupplierStatus={handleUpdateSupplierStatus}
+            onToggleUploadPermission={handleToggleUploadPermission}
           />
         )
       ) : (

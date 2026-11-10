@@ -29,6 +29,8 @@ import {
   Copy,
   ExternalLink,
   Lock,
+  MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -38,6 +40,7 @@ import {
   diagnoseFirebaseAuthError,
   FirebaseAuthDiagnosis,
 } from '../utils/firebaseAuthErrors';
+import { WarehouseLocationPickerMap } from './WarehouseLocationPickerMap';
 
 interface SupplierLandingViewProps {
   onSubmitApplication: (app: Omit<SupplierApplication, 'id' | 'status' | 'createdAt'>) => void;
@@ -83,6 +86,7 @@ export const SupplierLandingView: React.FC<SupplierLandingViewProps> = ({
   const [category, setCategory] = useState<SupplierCategory>('Frutas y Verduras');
   const [city, setCity] = useState('Ipiales');
   const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 0.8305, lng: -77.6462 });
   const [contactName, setContactName] = useState('');
   const [contactWhatsapp, setContactWhatsapp] = useState('');
   const [email, setEmail] = useState('');
@@ -195,6 +199,8 @@ export const SupplierLandingView: React.FC<SupplierLandingViewProps> = ({
         category,
         city: city.trim() || 'Ipiales',
         address: address.trim() || 'Zona Industrial, Ipiales',
+        lat: coords.lat,
+        lng: coords.lng,
         contactName: contactName.trim() || googleUser.displayName || 'Representante Comercial',
         contactWhatsapp: cleanWhatsapp,
         email: email.trim() || googleUser.email,
@@ -975,32 +981,68 @@ export const SupplierLandingView: React.FC<SupplierLandingViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Fila 3: Ciudad/zonas y Dirección de bodega */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-gray-800">
-                        Ciudad y zonas de atención *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="Ej. Ipiales, Pasto, Nariño"
-                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:outline-hidden focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243]"
-                      />
+                  {/* Fila 3: Ciudad/zonas y Dirección de bodega con Mapa Interactivo */}
+                  <div className="space-y-3 pt-1 pb-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-gray-800 flex items-center justify-between">
+                          <span>Ciudad identificada *</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            Detectada en mapa
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="Ej. Ipiales, Pasto, Nariño"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:outline-hidden focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-gray-800 flex items-center justify-between">
+                          <span>Dirección de bodega o punto de despacho</span>
+                          <span className="text-[10px] text-gray-400 font-medium">Autocompletada</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="Ej. Cra. 10 # 5-20, Ipiales"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:outline-hidden focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243]"
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-gray-800">
-                        Dirección de bodega o punto de despacho
-                      </label>
-                      <input
-                        type="text"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Ej. Cra. 10 # 5-20, Ipiales"
-                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:outline-hidden focus:border-[#E52243] focus:ring-1 focus:ring-[#E52243]"
+                    {/* Mapa interactivo para fijar bodega o punto de despacho */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#E52243]" />
+                          <span>Fijar ubicación de bodega o despacho en el mapa:</span>
+                        </span>
+                        <span className="text-[11px] text-gray-500 hidden sm:inline">
+                          Haz clic o arrastra el pin para autocompletar la dirección y la ciudad
+                        </span>
+                      </div>
+
+                      <WarehouseLocationPickerMap
+                        lat={coords.lat}
+                        lng={coords.lng}
+                        address={address}
+                        city={city}
+                        tradeName={tradeName || 'Bodega del Proveedor'}
+                        onChange={(data) => {
+                          setCoords({ lat: data.lat, lng: data.lng });
+                          if (data.address) {
+                            setAddress(data.address);
+                          }
+                          if (data.city) {
+                            setCity(data.city);
+                          }
+                        }}
                       />
                     </div>
                   </div>

@@ -9,6 +9,7 @@ import {
   SupplierProduct,
   SupplierCategory,
   SupplierApplication,
+  SupplierStatus,
 } from '../types/ryycoB2B';
 import { formatCop, sanitizeRyycoPhone } from '../utils/ryycoFormatters';
 import {
@@ -32,12 +33,19 @@ import {
   Send,
   CheckCircle2,
   Lock,
+  Unlock,
   ArrowLeft,
   Phone,
   Mail,
   Building2,
+  Pause,
+  Ban,
+  X,
+  AlertTriangle,
+  MapPin,
 } from 'lucide-react';
 import { RyycoLogo } from './RyycoLogo';
+import { WarehouseLocationPickerMap } from './WarehouseLocationPickerMap';
 
 interface SupplierPortalViewProps {
   suppliers: RyycoSupplier[];
@@ -48,6 +56,12 @@ interface SupplierPortalViewProps {
   onOpenAdminPanel: () => void;
   userName?: string;
   onBackToMarketplace?: () => void;
+  onUpdateSupplierStatus?: (
+    supplierId: string,
+    status: SupplierStatus,
+    reason?: string
+  ) => Promise<void> | void;
+  onToggleUploadPermission?: (supplierId: string) => Promise<void> | void;
 }
 
 const CATEGORIES: SupplierCategory[] = [
@@ -68,6 +82,25 @@ const CATEGORY_DEFAULT_IMAGE: Record<SupplierCategory, string> = {
   'Bebidas y Licores': IMG_OIL_DAIRY,
 };
 
+export const INACTIVATE_CRITERIA_PRESETS = [
+  'Solicitud voluntaria del proveedor (Pausa temporal)',
+  'Mantenimiento / Remodelación de bodega o instalaciones',
+  'Pausa comercial por inventario o vacaciones',
+  'Falta temporal de stock en líneas de insumos clave',
+  'Inactividad operativa prolongada sin despachos',
+  'Otro criterio administrativo acordado con RYYCO Central',
+];
+
+export const SUSPEND_CRITERIA_PRESETS = [
+  'Incumplimiento reiterado en tiempos de despacho o entrega',
+  'Reclamos de inocuidad, calidad o estado deficiente de insumos',
+  'Alteración injustificada de precios pactados con restaurantes',
+  'Inconsistencias fiscales, RUT desactualizado o facturación irregular',
+  'Cancelación recurrente y unilateral de pedidos confirmados',
+  'Sanción disciplinaria por incumplimiento de términos RYYCO',
+  'Otro motivo de sanción administrativa',
+];
+
 export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
   suppliers,
   products,
@@ -77,9 +110,68 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
   onOpenAdminPanel,
   userName = 'PRUEBA',
   onBackToMarketplace,
+  onUpdateSupplierStatus,
+  onToggleUploadPermission,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'directory' | 'contact_ryyco' | 'add_product'>('directory');
   const [isCatalogMenuOpen, setIsCatalogMenuOpen] = useState(false);
+
+  // Estados para Modal de Criterio de Suspensión / Inactivación
+  const [selectedSupplierForStatus, setSelectedSupplierForStatus] = useState<RyycoSupplier | null>(null);
+  const [targetStatusAction, setTargetStatusAction] = useState<'inactive' | 'suspended' | null>(null);
+  const [selectedPresetReason, setSelectedPresetReason] = useState<string>(INACTIVATE_CRITERIA_PRESETS[0]);
+  const [customReasonDetails, setCustomReasonDetails] = useState<string>('');
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState<boolean>(false);
+
+  const handleOpenStatusModal = (supplier: RyycoSupplier, action: 'inactive' | 'suspended') => {
+    setSelectedSupplierForStatus(supplier);
+    setTargetStatusAction(action);
+    const presets = action === 'inactive' ? INACTIVATE_CRITERIA_PRESETS : SUSPEND_CRITERIA_PRESETS;
+    setSelectedPresetReason(presets[0]);
+    setCustomReasonDetails('');
+    setOpenActionMenuId(null);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!selectedSupplierForStatus || !targetStatusAction || !onUpdateSupplierStatus) return;
+    setIsSavingStatus(true);
+    try {
+      const finalReason = customReasonDetails.trim()
+        ? `${selectedPresetReason}: ${customReasonDetails.trim()}`
+        : selectedPresetReason;
+
+      await onUpdateSupplierStatus(selectedSupplierForStatus.id, targetStatusAction, finalReason);
+      setStatusFeedback(
+        `Proveedor "${selectedSupplierForStatus.tradeName}" actualizado a estado ${
+          targetStatusAction === 'inactive' ? 'Inactivo / Pausado' : 'Suspendido'
+        }.`
+      );
+      setSelectedSupplierForStatus(null);
+      setTargetStatusAction(null);
+      setTimeout(() => setStatusFeedback(null), 4000);
+    } catch (err) {
+      console.error('Error al actualizar estado:', err);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
+  const handleDirectActivate = async (supplier: RyycoSupplier) => {
+    if (!onUpdateSupplierStatus) return;
+    setIsSavingStatus(true);
+    try {
+      await onUpdateSupplierStatus(supplier.id, 'active', 'Reactivado y habilitado por RYYCO Central');
+      setStatusFeedback(`Proveedor "${supplier.tradeName}" reactivado y habilitado para operar.`);
+      setOpenActionMenuId(null);
+      setTimeout(() => setStatusFeedback(null), 4000);
+    } catch (err) {
+      console.error('Error al reactivar:', err);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
 
   // Formulario de postulación de contacto a RYYCO Central
   const [appTradeName, setAppTradeName] = useState('');
@@ -88,6 +180,7 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
   const [appCategory, setAppCategory] = useState<SupplierCategory>('Cárnicos y Embutidos');
   const [appCity, setAppCity] = useState('Ipiales');
   const [appAddress, setAppAddress] = useState('');
+  const [appCoords, setAppCoords] = useState<{ lat: number; lng: number }>({ lat: 0.8305, lng: -77.6462 });
   const [appContactName, setAppContactName] = useState('');
   const [appContactWhatsapp, setAppContactWhatsapp] = useState('');
   const [appEmail, setAppEmail] = useState('');
@@ -123,6 +216,8 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
       category: appCategory,
       city: appCity.trim(),
       address: appAddress.trim() || 'Sector Comercial / Industrial',
+      lat: appCoords.lat,
+      lng: appCoords.lng,
       contactName: appContactName.trim() || 'Representante Comercial',
       contactWhatsapp: sanitizeRyycoPhone(appContactWhatsapp),
       email: appEmail.trim() || 'ventas@proveedor.co',
@@ -255,6 +350,22 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
 
       {/* 2. Cuerpo Principal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {statusFeedback && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 animate-in fade-in shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{statusFeedback}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStatusFeedback(null)}
+              className="text-emerald-700 hover:text-emerald-950 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Hero Section */}
         <div className="space-y-1">
           <p className="text-[11px] sm:text-xs font-extrabold text-[#D97706] tracking-wider uppercase">
@@ -511,6 +622,7 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                           <th className="py-3.5 px-4">Pedido mínimo</th>
                           <th className="py-3.5 px-4">Insumos</th>
                           <th className="py-3.5 px-5">Estado</th>
+                          <th className="py-3.5 px-5 text-right">Acciones Admin</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs sm:text-sm">
@@ -582,21 +694,137 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
 
                               {/* Columna Estado */}
                               <td className="py-4 px-5">
-                                {sup.canUploadProducts ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold">
-                                    <Check className="w-3 h-3 stroke-[2.5]" />
-                                    <span>Perfil habilitado</span>
-                                  </span>
-                                ) : (
+                                <div className="space-y-1">
+                                  {sup.status === 'active' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                      <span>Perfil habilitado</span>
+                                    </span>
+                                  )}
+                                  {sup.status === 'inactive' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold">
+                                      <Pause className="w-3.5 h-3.5 text-slate-600" />
+                                      <span>Inactivo / Pausado</span>
+                                    </span>
+                                  )}
+                                  {sup.status === 'suspended' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">
+                                      <Ban className="w-3.5 h-3.5 text-rose-600" />
+                                      <span>Suspendido</span>
+                                    </span>
+                                  )}
+                                  {(!sup.status || sup.status === 'pending_verification') && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
+                                      <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                      <span>Pendiente Central</span>
+                                    </span>
+                                  )}
+                                  {sup.statusReason && (
+                                    <p
+                                      className="text-[10px] text-gray-500 truncate max-w-[210px] block"
+                                      title={sup.statusReason}
+                                    >
+                                      <span className="font-semibold text-gray-700">Criterio:</span> {sup.statusReason}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Columna Acciones Admin */}
+                              <td className="py-4 px-5 text-right">
+                                <div className="relative inline-block text-left">
                                   <button
                                     type="button"
-                                    onClick={onOpenAdminPanel}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200 text-[11px] font-semibold transition-colors cursor-pointer"
+                                    onClick={() => setOpenActionMenuId(openActionMenuId === sup.id ? null : sup.id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer"
                                   >
-                                    <Lock className="w-3 h-3" />
-                                    <span>Pendiente Central</span>
+                                    <span>Gestionar</span>
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                                   </button>
-                                )}
+
+                                  {openActionMenuId === sup.id && (
+                                    <div className="absolute right-0 mt-1.5 w-64 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-30 text-xs text-left animate-in fade-in duration-150">
+                                      <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 flex items-center justify-between">
+                                        <span>Criterio Administrativo</span>
+                                        <span className="text-gray-400 font-mono text-[9px]">ID: {sup.id}</span>
+                                      </div>
+
+                                      {sup.status !== 'active' && (
+                                        <button
+                                          type="button"
+                                          disabled={isSavingStatus}
+                                          onClick={() => handleDirectActivate(sup)}
+                                          className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2.5 hover:bg-emerald-50 text-emerald-700 transition-colors cursor-pointer text-left"
+                                        >
+                                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                          <div>
+                                            <div className="text-xs">Activar / Habilitar Proveedor</div>
+                                            <div className="text-[10px] text-gray-400 font-normal">Permite publicar insumos y recibir pedidos</div>
+                                          </div>
+                                        </button>
+                                      )}
+
+                                      {sup.status !== 'inactive' && (
+                                        <button
+                                          type="button"
+                                          disabled={isSavingStatus}
+                                          onClick={() => handleOpenStatusModal(sup, 'inactive')}
+                                          className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2.5 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer text-left"
+                                        >
+                                          <Pause className="w-4 h-4 text-slate-500 shrink-0" />
+                                          <div>
+                                            <div className="text-xs">Inactivar Proveedor (Pausa)</div>
+                                            <div className="text-[10px] text-gray-400 font-normal">Pausa por criterio o solicitud sin sanción</div>
+                                          </div>
+                                        </button>
+                                      )}
+
+                                      {sup.status !== 'suspended' && (
+                                        <button
+                                          type="button"
+                                          disabled={isSavingStatus}
+                                          onClick={() => handleOpenStatusModal(sup, 'suspended')}
+                                          className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2.5 hover:bg-rose-50 text-rose-700 transition-colors cursor-pointer text-left"
+                                        >
+                                          <Ban className="w-4 h-4 text-rose-600 shrink-0" />
+                                          <div>
+                                            <div className="text-xs">Suspender Proveedor (Sanción)</div>
+                                            <div className="text-[10px] text-gray-400 font-normal">Bloquea por faltas, calidad o incumplimiento</div>
+                                          </div>
+                                        </button>
+                                      )}
+
+                                      {onToggleUploadPermission && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            onToggleUploadPermission(sup.id);
+                                            setOpenActionMenuId(null);
+                                          }}
+                                          className="w-full px-3.5 py-2.5 font-bold flex items-center gap-2.5 hover:bg-gray-50 text-gray-700 border-t border-gray-100 transition-colors cursor-pointer mt-1 pt-2 text-left"
+                                        >
+                                          {sup.canUploadProducts ? (
+                                            <>
+                                              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                                              <div>
+                                                <div className="text-xs text-amber-800">Bloquear Carga de Insumos</div>
+                                                <div className="text-[10px] text-gray-400 font-normal">Mantiene perfil pero sin publicar SKUs</div>
+                                              </div>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Unlock className="w-4 h-4 text-emerald-600 shrink-0" />
+                                              <div>
+                                                <div className="text-xs text-emerald-800">Permitir Carga de Insumos</div>
+                                                <div className="text-[10px] text-gray-400 font-normal">Autoriza subir nuevos SKUs al catálogo</div>
+                                              </div>
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -634,18 +862,39 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                             </div>
                           </div>
 
-                          {sup.canUploadProducts ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold shrink-0">
-                              <Check className="w-3 h-3 stroke-[2.5]" />
-                              <span>Perfil habilitado</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold shrink-0">
-                              <Lock className="w-3 h-3" />
-                              <span>Pendiente</span>
-                            </span>
-                          )}
+                          <div className="text-right shrink-0">
+                            {sup.status === 'active' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>Habilitado</span>
+                              </span>
+                            )}
+                            {sup.status === 'inactive' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-bold">
+                                <Pause className="w-3 h-3 text-slate-600" />
+                                <span>Inactivo</span>
+                              </span>
+                            )}
+                            {sup.status === 'suspended' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                                <Ban className="w-3 h-3 text-rose-600" />
+                                <span>Suspendido</span>
+                              </span>
+                            )}
+                            {(!sup.status || sup.status === 'pending_verification') && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                <Lock className="w-3 h-3 text-amber-600" />
+                                <span>Pendiente</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
+
+                        {sup.statusReason && (
+                          <div className="p-2 bg-gray-50 border border-gray-100 rounded-xl text-[10px] text-gray-600">
+                            <span className="font-bold text-gray-800">Criterio admin:</span> {sup.statusReason}
+                          </div>
+                        )}
 
                         {/* Fila 2: Especialidad (izq) y Pedido mínimo (der) */}
                         <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-gray-100">
@@ -671,13 +920,8 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Fila 3: SKU (izq) y Botón WhatsApp (der) */}
-                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
-                            <Package className="w-4 h-4 text-gray-500" />
-                            <span>{supProductsCount} {supProductsCount === 1 ? 'SKU' : 'SKUs'}</span>
-                          </div>
-
+                        {/* Fila 3: Botones de Acción para Admin en Móvil */}
+                        <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                           <a
                             href={getWhatsAppUrl(sup.salesWhatsapp, sup.tradeName)}
                             target="_blank"
@@ -688,6 +932,36 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                             <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100 shrink-0" />
                             <span>{formatDisplayPhone(sup.salesWhatsapp)}</span>
                           </a>
+
+                          <div className="flex items-center gap-1.5">
+                            {sup.status !== 'active' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDirectActivate(sup)}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-200"
+                              >
+                                Activar
+                              </button>
+                            )}
+                            {sup.status !== 'inactive' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStatusModal(sup, 'inactive')}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-lg border border-slate-300"
+                              >
+                                Inactivar
+                              </button>
+                            )}
+                            {sup.status !== 'suspended' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStatusModal(sup, 'suspended')}
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 text-[11px] font-bold rounded-lg border border-rose-200"
+                              >
+                                Suspender
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -833,11 +1107,15 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Ciudad / Municipio
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                      <span>Ciudad / Municipio *</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        Detectada en mapa
+                      </span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={appCity}
                       onChange={(e) => setAppCity(e.target.value)}
                       placeholder="Ej. Ipiales"
@@ -846,9 +1124,10 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Dirección de tu bodega / CEDI
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                    <span>Dirección de tu bodega / CEDI o punto de despacho</span>
+                    <span className="text-[10px] text-gray-400 font-medium">Autocompletada</span>
                   </label>
                   <input
                     type="text"
@@ -856,6 +1135,36 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                     onChange={(e) => setAppAddress(e.target.value)}
                     placeholder="Ej. Carrera 5 #14-22 Zona Mayorista, Ipiales"
                     className="w-full px-3 py-2 text-xs sm:text-sm bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:bg-white focus:outline-none focus:border-[#E52243]"
+                  />
+                </div>
+
+                {/* Mapa interactivo de ubicación de bodega */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#E52243]" />
+                      <span>Fijar ubicación de tu bodega en el mapa:</span>
+                    </span>
+                    <span className="text-[11px] text-gray-500 hidden sm:inline">
+                      Haz clic o arrastra el marcador para capturar la dirección y la ciudad
+                    </span>
+                  </div>
+
+                  <WarehouseLocationPickerMap
+                    lat={appCoords.lat}
+                    lng={appCoords.lng}
+                    address={appAddress}
+                    city={appCity}
+                    tradeName={appTradeName || 'Bodega del Proveedor'}
+                    onChange={(data) => {
+                      setAppCoords({ lat: data.lat, lng: data.lng });
+                      if (data.address) {
+                        setAppAddress(data.address);
+                      }
+                      if (data.city) {
+                        setAppCity(data.city);
+                      }
+                    }}
                   />
                 </div>
 
@@ -1086,6 +1395,138 @@ export const SupplierPortalView: React.FC<SupplierPortalViewProps> = ({
                 </div>
               </form>
             )}
+          </div>
+        )}
+
+        {/* Modal de Criterio Administrativo de Suspensión / Inactivación */}
+        {selectedSupplierForStatus && targetStatusAction && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col p-6 sm:p-7">
+              {/* Header Modal */}
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                      targetStatusAction === 'inactive'
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-rose-100 text-rose-700'
+                    }`}
+                  >
+                    {targetStatusAction === 'inactive' ? (
+                      <Pause className="w-5 h-5" />
+                    ) : (
+                      <Ban className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-gray-950 font-display">
+                      {targetStatusAction === 'inactive'
+                        ? 'Inactivar Proveedor (Pausa)'
+                        : 'Suspender Proveedor (Sanción)'}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {selectedSupplierForStatus.tradeName} · NIT {selectedSupplierForStatus.nit}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSupplierForStatus(null);
+                    setTargetStatusAction(null);
+                  }}
+                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                  aria-label="Cerrar modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Cuerpo del Modal */}
+              <div className="py-4 space-y-4 text-xs">
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
+                    targetStatusAction === 'inactive'
+                      ? 'bg-slate-50 border-slate-200 text-slate-700'
+                      : 'bg-rose-50 border-rose-200 text-rose-700'
+                  }`}
+                >
+                  {targetStatusAction === 'inactive'
+                    ? 'La inactivación pondrá en pausa comercial al proveedor. Sus insumos no se mostrarán para compras en el catálogo y no recibirá nuevos pedidos de restaurantes hasta que el administrador decida reactivarlo.'
+                    : 'La suspensión bloquea el acceso del proveedor a su portal y retira de inmediato todos sus insumos del catálogo público por faltas, problemas de calidad o incumplimiento reiterado.'}
+                </div>
+
+                {/* Selector de Criterio */}
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-gray-800 text-xs">
+                    Criterio principal del administrador:
+                  </label>
+                  <select
+                    value={selectedPresetReason}
+                    onChange={(e) => setSelectedPresetReason(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#E52243]"
+                  >
+                    {(targetStatusAction === 'inactive'
+                      ? INACTIVATE_CRITERIA_PRESETS
+                      : SUSPEND_CRITERIA_PRESETS
+                    ).map((preset) => (
+                      <option key={preset} value={preset}>
+                        {preset}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Observaciones o detalles adicionales */}
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-gray-800 text-xs">
+                    Observaciones o notas administrativas (Opcional):
+                  </label>
+                  <textarea
+                    value={customReasonDetails}
+                    onChange={(e) => setCustomReasonDetails(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe detalles específicos, número de reclamo o acuerdos con el proveedor..."
+                    className="w-full bg-white border border-gray-300 rounded-xl p-3 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#E52243]"
+                  />
+                </div>
+              </div>
+
+              {/* Footer Modal */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  disabled={isSavingStatus}
+                  onClick={() => {
+                    setSelectedSupplierForStatus(null);
+                    setTargetStatusAction(null);
+                  }}
+                  className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingStatus}
+                  onClick={handleConfirmStatusChange}
+                  className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2 ${
+                    targetStatusAction === 'inactive'
+                      ? 'bg-slate-800 hover:bg-slate-900'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {isSavingStatus ? (
+                    <span>Guardando en Firestore...</span>
+                  ) : (
+                    <span>
+                      {targetStatusAction === 'inactive'
+                        ? 'Confirmar Inactivación'
+                        : 'Confirmar Suspensión'}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

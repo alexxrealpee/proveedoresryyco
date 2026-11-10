@@ -61,7 +61,7 @@ export type SupplierCategory =
   | 'Empaques Biodegradables'
   | 'Bebidas y Licores';
 
-export type SupplierStatus = 'pending_verification' | 'active' | 'suspended';
+export type SupplierStatus = 'pending_verification' | 'active' | 'suspended' | 'inactive';
 
 /**
  * 1. PERFIL DEL PROVEEDOR (suppliers/{supplierId})
@@ -114,6 +114,9 @@ export interface RyycoSupplier {
   verifiedByRyyco: boolean;
   canUploadProducts: boolean; // Habilitado por RYYCO Central
   status: SupplierStatus;
+  statusReason?: string; // Criterio o motivo administrativo de suspensión/inactivación
+  statusUpdatedAt?: string; // Fecha y hora del cambio de estado
+  statusUpdatedBy?: string; // Administrador que ejecutó el cambio
   approvedAt?: string;
   approvedBy?: string;
   acceptsCredit15Days: boolean;
@@ -137,6 +140,8 @@ export interface SupplierApplication {
   category: SupplierCategory;
   city: string;
   address: string;
+  lat?: number;
+  lng?: number;
   contactName: string;
   contactWhatsapp: string;
   email: string;

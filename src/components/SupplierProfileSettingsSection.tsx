@@ -502,11 +502,15 @@ export const SupplierProfileSettingsSection: React.FC<SupplierProfileSettingsSec
           lat={coords.lat}
           lng={coords.lng}
           address={address}
+          city={city}
           tradeName={tradeName}
           onChange={(newCoords) => {
             setCoords({ lat: newCoords.lat, lng: newCoords.lng });
             if (newCoords.address) {
               setAddress(newCoords.address);
+            }
+            if (newCoords.city) {
+              setCity(newCoords.city);
             }
           }}
         />

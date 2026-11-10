@@ -102,15 +102,25 @@ export const SupplierLoginModal: React.FC<SupplierLoginModalProps> = ({
       });
 
       if (matchedSupplier) {
-        if (!matchedSupplier.canUploadProducts || matchedSupplier.status === 'pending_verification') {
+        if (matchedSupplier.status === 'suspended') {
           setErrorMsg(
-            `Tu empresa "${matchedSupplier.tradeName}" está registrada con el correo ${googleEmail}, pero la habilitación para venta aún está en revisión por RYYCO Central.`
+            `La cuenta de "${matchedSupplier.tradeName}" se encuentra temporalmente suspendida por RYYCO Central.${
+              matchedSupplier.statusReason ? ` Motivo: ${matchedSupplier.statusReason}` : ''
+            }`
           );
           return;
         }
-        if (matchedSupplier.status === 'suspended') {
+        if (matchedSupplier.status === 'inactive') {
           setErrorMsg(
-            `La cuenta de "${matchedSupplier.tradeName}" se encuentra temporalmente suspendida por RYYCO Central.`
+            `La cuenta de "${matchedSupplier.tradeName}" se encuentra inactiva o pausada.${
+              matchedSupplier.statusReason ? ` Criterio registrado: ${matchedSupplier.statusReason}` : ''
+            }`
+          );
+          return;
+        }
+        if (!matchedSupplier.canUploadProducts || matchedSupplier.status === 'pending_verification') {
+          setErrorMsg(
+            `Tu empresa "${matchedSupplier.tradeName}" está registrada con el correo ${googleEmail}, pero la habilitación para venta aún está en revisión por RYYCO Central.`
           );
           return;
         }
