@@ -112,6 +112,9 @@ import {
   Home,
   MoreHorizontal,
   User,
+  Download,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 import { RyycoHeroGroceryGraphic } from './components/RyycoHeroGroceryGraphic';
 import { RyycoCartBagIllustration } from './components/RyycoCartBagIllustration';
@@ -263,6 +266,8 @@ export default function App() {
   const [isEmptyStateMenuOpen, setIsEmptyStateMenuOpen] = useState(false);
 
   const [isRestaurantLoginOpen, setIsRestaurantLoginOpen] = useState(false);
+  const [isBrandKitOpen, setIsBrandKitOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const handleRestaurantLoginSuccess = (profile: RyycoRestaurantProfile) => {
     setRestaurantSession(profile);
@@ -2774,8 +2779,17 @@ export default function App() {
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-gray-400 font-medium">
+            <div className="flex flex-wrap items-center gap-4 text-gray-500 font-medium">
               <span>Restaurantes · Bodegas · Domiciliarios</span>
+              <span className="text-gray-300">|</span>
+              <button
+                type="button"
+                onClick={() => setIsBrandKitOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E52243] hover:text-[#D1132A] cursor-pointer hover:underline transition-colors py-1 px-2 rounded-lg hover:bg-rose-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar Logo RYYCO
+              </button>
             </div>
           </div>
         </footer>
@@ -2904,6 +2918,141 @@ export default function App() {
             </button>
           )}
         </nav>
+      )}
+      {/* Modal de Descarga de Logos de RYYCO (Kit de Marca) */}
+      {isBrandKitOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-[#E52243] flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 font-display">
+                    Kit de Logos Oficiales RYYCO
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Formatos vectoriales SVG y ráster PNG de alta resolución para integrar en otras plataformas.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBrandKitOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              {/* Opción 1: Logo Fondo Claro */}
+              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-32 sm:w-40 h-16 bg-white rounded-xl border border-gray-200 p-2 flex items-center justify-center shadow-xs">
+                    <img src="/logo-dark.svg" alt="RYYCO Logo Fondo Claro" className="max-h-full max-w-full object-contain" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Logo Completo (Fondo Claro)</h4>
+                    <p className="text-xs text-gray-500">Tipografía oscura con chef rojo y estrellas doradas</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <a
+                    href="/logo-dark.svg"
+                    download="ryyco-logo-dark.svg"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white border border-gray-200 hover:border-gray-300 text-gray-700 shadow-2xs cursor-pointer hover:bg-gray-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    SVG
+                  </a>
+                  <a
+                    href="/ryyco-logo-dark.png"
+                    download="ryyco-logo-dark.png"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#E52243] hover:bg-[#D1132A] text-white shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    PNG (1200px)
+                  </a>
+                </div>
+              </div>
+
+              {/* Opción 2: Logo Fondo Oscuro */}
+              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-32 sm:w-40 h-16 bg-[#090B12] rounded-xl border border-gray-800 p-2 flex items-center justify-center shadow-xs">
+                    <img src="/logo.svg" alt="RYYCO Logo Fondo Oscuro" className="max-h-full max-w-full object-contain" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Logo Completo (Fondo Oscuro)</h4>
+                    <p className="text-xs text-gray-500">Tipografía blanca para fondos negros o modo oscuro</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <a
+                    href="/logo.svg"
+                    download="ryyco-logo-white.svg"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white border border-gray-200 hover:border-gray-300 text-gray-700 shadow-2xs cursor-pointer hover:bg-gray-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    SVG
+                  </a>
+                  <a
+                    href="/ryyco-logo-white.png"
+                    download="ryyco-logo-white.png"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#E52243] hover:bg-[#D1132A] text-white shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    PNG (1200px)
+                  </a>
+                </div>
+              </div>
+
+              {/* Opción 3: Isotipo Chef RYYCO */}
+              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-20 sm:w-20 h-16 bg-white rounded-xl border border-gray-200 p-2 flex items-center justify-center shadow-xs">
+                    <img src="/ryyco-chef-icon.svg" alt="Icono Chef RYYCO" className="max-h-full max-w-full object-contain" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Isotipo Chef RYYCO (Avatar / App Icon)</h4>
+                    <p className="text-xs text-gray-500">Silueta del chef rojo con sonrisa y sombrero</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <a
+                    href="/ryyco-chef-icon.svg"
+                    download="ryyco-chef-icon.svg"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white border border-gray-200 hover:border-gray-300 text-gray-700 shadow-2xs cursor-pointer hover:bg-gray-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    SVG
+                  </a>
+                  <a
+                    href="/ryyco-chef-icon.png"
+                    download="ryyco-chef-icon.png"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#E52243] hover:bg-[#D1132A] text-white shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    PNG (512px)
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+              <span>Uso autorizado para plataformas e integraciones del ecosistema RYYCO.</span>
+              <button
+                type="button"
+                onClick={() => setIsBrandKitOpen(false)}
+                className="px-4 py-2 font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
