@@ -123,6 +123,11 @@ const CATEGORIES = [
     image: '/assets/aistudio/ryyco_proveedores_todos_ffe41acf.png',
   },
   {
+    id: 'Frutas y Verduras',
+    label: 'Frutas y verduras',
+    image: '/assets/aistudio/Imagen_de_ChatGPT_10_nov_2026__17_27_49_04b7e328.png',
+  },
+  {
     id: 'Cárnicos y Embutidos',
     label: 'Cárnicos',
     image: '/assets/aistudio/ryyco_proveedores_carnicos_3cf10849.png',
@@ -2114,11 +2119,12 @@ export default function App() {
               </div>
             </section>
 
-            {/* 4. Carrusel de 5 Categorías Oficiales */}
-            <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+            {/* 4. Categorías Oficiales */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
               {CATEGORIES.map((cat) => {
                 const isSelected = selectedCategory === cat.id;
                 const isEmpaques = cat.id === 'Empaques Biodegradables';
+                const isFrutas = cat.id === 'Frutas y Verduras';
                 return (
                   <button
                     key={cat.id}
@@ -2136,7 +2142,7 @@ export default function App() {
                         alt={cat.label}
                         loading="eager"
                         decoding="async"
-                        fetchPriority={isEmpaques ? 'high' : 'auto'}
+                        fetchPriority={isEmpaques || isFrutas ? 'high' : 'auto'}
                         className={`w-full h-full object-contain pointer-events-none drop-shadow-2xs transition-transform duration-200 group-hover:scale-105 ${
                           isEmpaques
                             ? 'max-h-12 sm:max-h-20 md:max-h-28 lg:max-h-32 scale-105 sm:scale-110 md:scale-115'
